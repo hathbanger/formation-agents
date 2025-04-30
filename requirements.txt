@@ -27,3 +27,4 @@ pypdf
 googlesearch-python
 pycountry
 yfinance
+youtube_transcript_api
