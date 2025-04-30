@@ -1,8 +1,9 @@
 name: agent-app
 services:
-  - name: agent-service
-    dockerfile_path: ./Dockerfile
-    source_dir: .
+  - name: agent-service-AGENT_ID
+    image:
+      registry: registry.digitalocean.com
+      repository: formation-registry/AGENT_IMAGE_NAME
     envs:
       - key: AGENT_SCRIPT_NAME
         value: main.py # Override this per agent if needed

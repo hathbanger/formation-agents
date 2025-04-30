@@ -67,7 +67,14 @@ jobs:
         run: |
           docker push "$DOCKER_IMAGE"
 
-      # 5. Deploy to DigitalOcean (App Platform or Droplet)
+      # 5. Template app.yaml
+      - name: Template app.yaml
+        run: |
+          sed -i "s/AGENT_ID/${{ github.event.inputs.agent_id }}/g" .do/app.yaml
+          sed -i "s/AGENT_IMAGE_NAME/${{ github.event.inputs.agent_id }}/g" .do/app.yaml
+          sed -i "s/AGENT_IMAGE_TAG/${{ github.event.inputs.docker_tag }}/g" .do/app.yaml
+
+      # 6. Deploy to DigitalOcean App Platform
       - name: Deploy to DigitalOcean App Platform
         uses: digitalocean/app_action/deploy@v2
         env:
