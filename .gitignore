@@ -86,7 +86,6 @@ ehthumbs.db
 .env.*.local
 
 data
-deployment-specs
 reports
 tmp
 logs

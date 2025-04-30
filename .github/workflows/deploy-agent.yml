@@ -25,7 +25,7 @@ on:
         description: "Agent ID"
         required: true
       docker_tag:
-        description: "Docker image tag"
+        description: "Docker image tag to deploy"
         required: true
       deployment_spec_path:
         description: "Path to deployment spec YAML (default: deployment-spec.yaml)"
@@ -36,7 +36,7 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     env:
-      DOCKER_IMAGE: registry.digitalocean.com/your-registry/agent-${{ github.event.inputs.agent_id }}:${{ github.event.inputs.docker_tag }}
+      DOCKER_IMAGE: registry.digitalocean.com/formation-registry/${{ github.event.inputs.docker_tag }}
       DEPLOYMENT_SPEC: ${{ github.event.inputs.deployment_spec_path }}
       APP_ID: ${{ secrets.DO_APP_ID }}
       DEPLOYMENT_ID: ${{ github.event.inputs.deployment_id }}
@@ -67,8 +67,7 @@ jobs:
       - name: Deploy to DigitalOcean App Platform
         id: deploy
         run: |
-          # If using App Platform, update the app with the new spec
-          # Make sure $APP_ID and $DEPLOYMENT_SPEC are set correctly
+          # Use the provided docker_tag to deploy the image
           doctl apps update "$APP_ID" --spec "$DEPLOYMENT_SPEC"
         env:
           DIGITALOCEAN_ACCESS_TOKEN: ${{ secrets.DOCR_TOKEN }}

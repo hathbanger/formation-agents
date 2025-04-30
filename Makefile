@@ -3,12 +3,14 @@ SHELL := /bin/bash
 PYTHON := python
 PIP := pip
 DOCKER_COMPOSE := docker-compose
-DOCKER_REGISTRY := registry.digitalocean.com/your-registry  # Update this with your DO registry
+DOCKER_REGISTRY := registry.digitalocean.com/formation-registry
 
 ENV_FILE := .env
 DEPLOY_ENV_FILE := deploy.env  # For deployment-specific variables
 
-.PHONY: help install lint format test build up down logs run-cli run-api run-telegram run-all clean agent deploy-agent
+AGENT_SCRIPTS := start-up-idea-validator movie-recommender youtube-agent travel-agent teaching-assistant research-assistant recipe-creator new-agency-team movie-recommender investment-report-generator finance-agent discussion-team books-recommender blog-post-generator
+
+.PHONY: help install lint format test build up down logs run-cli run-api run-telegram run-all clean agent deploy-agent publish-all
 
 help:
 	@echo "OSS BOSS Makefile commands:"
@@ -27,6 +29,7 @@ help:
 	@echo "  make clean        Remove Python cache files"
 	@echo "  make agent SCRIPT=script-name  Run a specific agent script in Docker"
 	@echo "  make deploy-agent SCRIPT=script-name  Deploy agent to Digital Ocean"
+	@echo "  make publish-all  Publish all agent images to Digital Ocean"
 
 install:
 	$(PIP) install -r requirements.txt
@@ -111,3 +114,18 @@ endif
 		echo "doctl not found. Please install Digital Ocean CLI tools."; \
 		exit 1; \
 	fi
+
+publish-all:
+	@if [ -z "$(DO_API_TOKEN)" ]; then \
+		echo "DO_API_TOKEN not set. Load it from .env or export it."; \
+		exit 1; \
+	fi
+	@echo "Logging in to DigitalOcean Container Registry..."
+	@echo "$$DO_API_TOKEN" | docker login registry.digitalocean.com -u doctl --password-stdin
+	@for script in $(AGENT_SCRIPTS); do \
+		echo "Building and pushing $$script..."; \
+		echo "docker build -t $(DOCKER_REGISTRY)/$$script:latest --build-arg AGENT_SCRIPT_NAME=$$script.py ."; \
+		bash -c "docker build -t $(DOCKER_REGISTRY)/$$script:latest --build-arg AGENT_SCRIPT_NAME=$$script.py ."; \
+		echo "docker push $(DOCKER_REGISTRY)/$$script:latest"; \
+		bash -c "docker push $(DOCKER_REGISTRY)/$$script:latest"; \
+	done
