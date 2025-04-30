@@ -4,6 +4,7 @@ from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.newspaper4k import Newspaper4kTools
+import os
 
 teaching_assistant_agent = Agent(
     model=OpenAIChat(id="gpt-4o"),
@@ -39,10 +40,31 @@ teaching_assistant_agent = Agent(
 )
 
 if __name__ == "__main__":
-    teaching_assistant_agent.print_response(
-        "Create a study guide for the topic: The fundamentals of quantum mechanics",
-        stream=True,
-    )
+    # If running as API server
+    if os.getenv("RUN_AS_API", "0") == "1":
+        from agent_api_server import create_agent_api
+        import uvicorn
+
+        def workflow_runner(query):
+            result = teaching_assistant_agent.run(query, stream=False)
+            if isinstance(result, (list, tuple)):
+                responses = result
+            elif hasattr(result, '__iter__') and not isinstance(result, str):
+                responses = list(result)
+            else:
+                responses = [result]
+            for resp in reversed(responses):
+                if hasattr(resp, "content") and resp.content and resp.content.strip() and resp.content.strip() != ")":
+                    return resp.content
+            return "No content generated."
+
+        app = create_agent_api("teaching-assistant", workflow_runner)
+        uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("API_PORT", "8000")))
+    else:
+        teaching_assistant_agent.print_response(
+            "Create a study guide for the topic: The fundamentals of quantum mechanics",
+            stream=True,
+        )
 
 # Example prompts to explore:
 """

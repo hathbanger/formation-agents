@@ -1,0 +1,116 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+
+# Agent Deployment Automation Plan
+
+## Overview
+
+This plan describes how to integrate the agent code repository with the Formation platform’s deployment workflow. The goal is to automate Docker image builds, pushes, and deployments to DigitalOcean, while providing real-time status updates to the Formation platform.
+
+---
+
+## 1. **Triggering a Deployment**
+
+- The Formation platform creates a deployment record via its `/api/deployments` endpoint.
+- The platform then triggers a GitHub Action in the agent code repository using the [workflow_dispatch](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#workflow_dispatch) event, passing:
+  - `deployment_id`
+  - `agent_id`
+  - `docker_tag` (unique for this deployment)
+  - Any other relevant config
+
+---
+
+## 2. **GitHub Actions Workflow**
+
+- The agent code repository contains a workflow file (e.g., `.github/workflows/deploy-agent.yml`).
+- The workflow is triggered by the `workflow_dispatch` event with the above inputs.
+
+### **Workflow Steps:**
+1. **Checkout code**
+2. **Log in to DigitalOcean Container Registry (DOCR)**
+3. **Build Docker image**  
+   - Tag: `registry.digitalocean.com/your-registry/agent-${agent_id}:${docker_tag}`
+4. **Push Docker image to DOCR**
+5. **Deploy to DigitalOcean**  
+   - Use `doctl` or the DigitalOcean API to update/create the app or droplet.
+6. **Update Deployment Status**  
+   - PATCH the Formation platform’s `/api/deployments/[deploymentId]` endpoint with:
+     - `status` (e.g., `building`, `deploying`, `deployed`, `failed`)
+     - `logs`
+     - `deployment_url`
+     - `docker_image`
+     - Any other relevant info
+
+---
+
+## 3. **Example GitHub Action Workflow**
+
+```yaml
+name: Build and Deploy Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_id:
+        description: 'Deployment record ID'
+        required: true
+      agent_id:
+        description: 'Agent ID'
+        required: true
+      docker_tag:
+        description: 'Docker image tag'
+        required: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Log in to DigitalOcean Container Registry
+        run: echo "${{ secrets.DOCR_TOKEN }}" | docker login registry.digitalocean.com -u doctl --password-stdin
+
+      - name: Build Docker image
+        run: |
+          docker build -t registry.digitalocean.com/your-registry/agent-${{ github.event.inputs.agent_id }}:${{ github.event.inputs.docker_tag }} .
+
+      - name: Push Docker image
+        run: |
+          docker push registry.digitalocean.com/your-registry/agent-${{ github.event.inputs.agent_id }}:${{ github.event.inputs.docker_tag }}
+
+      - name: Deploy to DigitalOcean
+        run: |
+          # Use doctl or DigitalOcean API to deploy the image
+          # Example for App Platform:
+          doctl apps update <app-id> --spec deployment-spec.yaml
+
+      - name: Notify Platform of Deployment Status
+        run: |
+          curl -X PATCH https://your-platform.com/api/deployments/${{ github.event.inputs.deployment_id }} \
+            -H 'Authorization: Bearer ${{ secrets.PLATFORM_API_KEY }}' \
+            -H 'Content-Type: application/json' \
+            -d '{ "status": "deployed", "docker_image": "registry.digitalocean.com/your-registry/agent-${{ github.event.inputs.agent_id }}:${{ github.event.inputs.docker_tag }}" }'
+```
+
+---
+
+## 4. **Best Practices**
+
+- Use unique Docker tags for each deployment (e.g., based on commit SHA or deployment ID).
+- Store the Docker image tag in the Formation platform’s database for traceability.
+- Ensure secrets (DOCR token, platform API key) are stored securely in GitHub Actions secrets.
+- Provide detailed logs and error messages in the PATCH request to the platform for user feedback.
+
+---
+
+## 5. **References**
+
+- [DigitalOcean Container Registry](https://docs.digitalocean.com/products/container-registry/)
+- [DigitalOcean App Platform API](https://docs.digitalocean.com/reference/api/api-reference/#tag/Apps)
+- [GitHub Actions workflow_dispatch](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#workflow_dispatch)
+- [Formation Platform API Docs](/api/deployments)
+
+---

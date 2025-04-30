@@ -1,0 +1,106 @@
+# .github/workflows/deploy-agent.yml
+#
+# Build, push, and deploy agent Docker image to DigitalOcean, then notify the Formation platform.
+#
+# Required secrets:
+#   - DOCR_TOKEN: DigitalOcean Container Registry token
+#   - PLATFORM_API_KEY: API key for notifying the Formation platform
+#   - DO_APP_ID: DigitalOcean App Platform App ID (if using App Platform)
+#
+# Required inputs:
+#   - deployment_id: Deployment record ID (from Formation platform)
+#   - agent_id: Agent ID
+#   - docker_tag: Unique Docker image tag for this deployment
+#   - deployment_spec_path: (optional) Path to deployment spec YAML (default: deployment-spec.yaml)
+
+name: Build and Deploy Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_id:
+        description: "Deployment record ID"
+        required: true
+      agent_id:
+        description: "Agent ID"
+        required: true
+      docker_tag:
+        description: "Docker image tag"
+        required: true
+      deployment_spec_path:
+        description: "Path to deployment spec YAML (default: deployment-spec.yaml)"
+        required: false
+        default: "deployment-spec.yaml"
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_IMAGE: registry.digitalocean.com/your-registry/agent-${{ github.event.inputs.agent_id }}:${{ github.event.inputs.docker_tag }}
+      DEPLOYMENT_SPEC: ${{ github.event.inputs.deployment_spec_path }}
+      APP_ID: ${{ secrets.DO_APP_ID }}
+      DEPLOYMENT_ID: ${{ github.event.inputs.deployment_id }}
+      PLATFORM_API_KEY: ${{ secrets.PLATFORM_API_KEY }}
+    steps:
+      # 1. Checkout code
+      - uses: actions/checkout@v3
+
+      # 2. Log in to DigitalOcean Container Registry
+      - name: Log in to DigitalOcean Container Registry
+        run: echo "$DOCR_TOKEN" | docker login registry.digitalocean.com -u doctl --password-stdin
+        env:
+          DOCR_TOKEN: ${{ secrets.DOCR_TOKEN }}
+
+      # 3. Build Docker image
+      - name: Build Docker image
+        id: build
+        run: |
+          docker build -t "$DOCKER_IMAGE" .
+
+      # 4. Push Docker image
+      - name: Push Docker image
+        id: push
+        run: |
+          docker push "$DOCKER_IMAGE"
+
+      # 5. Deploy to DigitalOcean (App Platform or Droplet)
+      - name: Deploy to DigitalOcean App Platform
+        id: deploy
+        run: |
+          # If using App Platform, update the app with the new spec
+          # Make sure $APP_ID and $DEPLOYMENT_SPEC are set correctly
+          doctl apps update "$APP_ID" --spec "$DEPLOYMENT_SPEC"
+        env:
+          DIGITALOCEAN_ACCESS_TOKEN: ${{ secrets.DOCR_TOKEN }}
+
+      # 6. Notify Platform of Deployment Success
+      - name: Notify Platform of Deployment Status (Success)
+        if: success()
+        run: |
+          curl -X PATCH "https://your-platform.com/api/deployments/$DEPLOYMENT_ID/status" \
+            -H "Authorization: Bearer $PLATFORM_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{ "status": "deployed", "docker_image": "'$DOCKER_IMAGE'" }'
+
+      # 7. Notify Platform of Deployment Failure
+      - name: Notify Platform of Deployment Status (Failure)
+        if: failure()
+        run: |
+          # Optionally, collect logs from previous steps if needed
+          echo "Deployment failed. Notifying platform."
+          curl -X PATCH "https://your-platform.com/api/deployments/$DEPLOYMENT_ID/status" \
+            -H "Authorization: Bearer $PLATFORM_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{ "status": "failed", "docker_image": "'$DOCKER_IMAGE'" }'
+
+      # 8. (Optional) Upload logs as an artifact for debugging
+      - name: Upload workflow logs
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-logs
+          path: ${{ runner.temp }}/_github_workflow/*
+# Notes:
+# - To deploy to a Droplet instead of App Platform, replace the deploy step with SSH/docker commands.
+# - Make sure all referenced secrets are set in your repository settings.
+# - You may further enhance log collection by capturing output from each step and sending it to the platform.

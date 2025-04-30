@@ -9,6 +9,7 @@ from agno.utils.log import logger
 from agno.utils.pprint import pprint_run_response
 from agno.workflow import RunEvent, RunResponse, Workflow
 from pydantic import BaseModel, Field
+import os
 
 
 class IdeaClarification(BaseModel):
@@ -66,7 +67,7 @@ class StartupIdeaValidator(Workflow):
             "You are provided with a startup idea and some market research related to the idea. ",
             "Identify existing competitors in the market. ",
             "Perform Strengths, Weaknesses, Opportunities, and Threats (SWOT) analysis for each competitor. ",
-            "Assess the startup’s potential positioning relative to competitors.",
+            "Assess the startup's potential positioning relative to competitors.",
         ],
         add_history_to_messages=True,
         add_datetime_to_instructions=True,
@@ -203,24 +204,54 @@ class StartupIdeaValidator(Workflow):
 if __name__ == "__main__":
     from rich.prompt import Prompt
 
-    # Get idea from user
-    idea = Prompt.ask(
-        "[bold]What is your startup idea?[/bold]\n✨",
-        default="A marketplace for Christmas Ornaments made from leather",
-    )
+    # If running as API server
+    if os.getenv("RUN_AS_API", "0") == "1":
+        from agent_api_server import create_agent_api
+        import uvicorn
 
-    # Convert the idea to a URL-safe string for use in session_id
-    url_safe_idea = idea.lower().replace(" ", "-")
+        def workflow_runner(query):
+            url_safe_idea = query.lower().replace(" ", "-")
+            validator = StartupIdeaValidator(
+                description="Startup Idea Validator",
+                session_id=f"validate-startup-idea-{url_safe_idea}",
+                storage=SqliteStorage(
+                    table_name="validate_startup_ideas_workflow",
+                    db_file="tmp/agno_workflows.db",
+                ),
+            )
+            result = validator.run(startup_idea=query)
+            if isinstance(result, (list, tuple)):
+                responses = result
+            elif hasattr(result, '__iter__') and not isinstance(result, str):
+                responses = list(result)
+            else:
+                responses = [result]
+            for resp in reversed(responses):
+                if hasattr(resp, "content") and resp.content and resp.content.strip() and resp.content.strip() != ")":
+                    return resp.content
+            return "No content generated."
 
-    startup_idea_validator = StartupIdeaValidator(
-        description="Startup Idea Validator",
-        session_id=f"validate-startup-idea-{url_safe_idea}",
-        storage=SqliteStorage(
-            table_name="validate_startup_ideas_workflow",
-            db_file="tmp/agno_workflows.db",
-        ),
-    )
+        app = create_agent_api("start-up-idea-validator", workflow_runner)
+        uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("API_PORT", "8000")))
+    else:
+        # Get idea from user
+        idea = Prompt.ask(
+            "[bold]What is your startup idea?[/bold]\n✨",
+            default="A marketplace for Christmas Ornaments made from leather",
+        )
 
-    final_report: Iterator[RunResponse] = startup_idea_validator.run(startup_idea=idea)
+        # Convert the idea to a URL-safe string for use in session_id
+        url_safe_idea = idea.lower().replace(" ", "-")
 
-    pprint_run_response(final_report, markdown=True)
+        startup_idea_validator = StartupIdeaValidator(
+            description="Startup Idea Validator",
+            session_id=f"validate-startup-idea-{url_safe_idea}",
+            storage=SqliteStorage(
+                table_name="validate_startup_ideas_workflow",
+                db_file="tmp/agno_workflows.db",
+            ),
+        )
+
+        final_report: Iterator[RunResponse] = startup_idea_validator.run(startup_idea=idea)
+
+        pprint_run_response(final_report, markdown=True)

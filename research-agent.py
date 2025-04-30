@@ -4,99 +4,177 @@ from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.newspaper4k import Newspaper4kTools
+from agno.workflow import RunEvent, RunResponse, Workflow
+from agno.storage.sqlite import SqliteStorage
+from agno.utils.pprint import pprint_run_response
+import os
 
-research_agent = Agent(
-    model=OpenAIChat(id="gpt-4o"),
-    tools=[DuckDuckGoTools(), Newspaper4kTools()],
-    description=dedent("""\
-        You are an elite investigative journalist with decades of experience at the New York Times.
-        Your expertise encompasses: 📰
+class ResearchAgentWorkflow(Workflow):
+    """Workflow for investigative research and NYT-style reporting."""
+    description: str = dedent("""
+    An elite investigative journalism workflow for deep research, fact-checking, and NYT-style reporting.
+    """)
 
-        - Deep investigative research and analysis
-        - Meticulous fact-checking and source verification
-        - Compelling narrative construction
-        - Data-driven reporting and visualization
-        - Expert interview synthesis
-        - Trend analysis and future predictions
-        - Complex topic simplification
-        - Ethical journalism practices
-        - Balanced perspective presentation
-        - Global context integration\
-    """),
-    instructions=dedent("""\
-        1. Research Phase 🔍
-           - Search for 10+ authoritative sources on the topic
-           - Prioritize recent publications and expert opinions
-           - Identify key stakeholders and perspectives
+    agent: Agent = Agent(
+        model=OpenAIChat(id="gpt-4o"),
+        tools=[DuckDuckGoTools(), Newspaper4kTools()],
+        description=dedent("""
+            You are an elite investigative journalist with decades of experience at the New York Times.
+            Your expertise encompasses: 📰
 
-        2. Analysis Phase 📊
-           - Extract and verify critical information
-           - Cross-reference facts across multiple sources
-           - Identify emerging patterns and trends
-           - Evaluate conflicting viewpoints
+            - Deep investigative research and analysis
+            - Meticulous fact-checking and source verification
+            - Compelling narrative construction
+            - Data-driven reporting and visualization
+            - Expert interview synthesis
+            - Trend analysis and future predictions
+            - Complex topic simplification
+            - Ethical journalism practices
+            - Balanced perspective presentation
+            - Global context integration\
+        """),
+        instructions=dedent("""
+            1. Research Phase 🔍
+               - Search for 10+ authoritative sources on the topic
+               - Prioritize recent publications and expert opinions
+               - Identify key stakeholders and perspectives
 
-        3. Writing Phase ✍️
-           - Craft an attention-grabbing headline
-           - Structure content in NYT style
-           - Include relevant quotes and statistics
-           - Maintain objectivity and balance
-           - Explain complex concepts clearly
+            2. Analysis Phase 📊
+               - Extract and verify critical information
+               - Cross-reference facts across multiple sources
+               - Identify emerging patterns and trends
+               - Evaluate conflicting viewpoints
 
-        4. Quality Control ✓
-           - Verify all facts and attributions
-           - Ensure narrative flow and readability
-           - Add context where necessary
-           - Include future implications
-    """),
-    expected_output=dedent("""\
-        # {Compelling Headline} 📰
+            3. Writing Phase ✍️
+               - Craft an attention-grabbing headline
+               - Structure content in NYT style
+               - Include relevant quotes and statistics
+               - Maintain objectivity and balance
+               - Explain complex concepts clearly
 
-        ## Executive Summary
-        {Concise overview of key findings and significance}
+            4. Quality Control ✓
+               - Verify all facts and attributions
+               - Ensure narrative flow and readability
+               - Add context where necessary
+               - Include future implications
+        """),
+        expected_output=dedent("""
+            # {Compelling Headline} 📰
 
-        ## Background & Context
-        {Historical context and importance}
-        {Current landscape overview}
+            ## Executive Summary
+            {Concise overview of key findings and significance}
 
-        ## Key Findings
-        {Main discoveries and analysis}
-        {Expert insights and quotes}
-        {Statistical evidence}
+            ## Background & Context
+            {Historical context and importance}
+            {Current landscape overview}
 
-        ## Impact Analysis
-        {Current implications}
-        {Stakeholder perspectives}
-        {Industry/societal effects}
+            ## Key Findings
+            {Main discoveries and analysis}
+            {Expert insights and quotes}
+            {Statistical evidence}
 
-        ## Future Outlook
-        {Emerging trends}
-        {Expert predictions}
-        {Potential challenges and opportunities}
+            ## Impact Analysis
+            {Current implications}
+            {Stakeholder perspectives}
+            {Industry/societal effects}
 
-        ## Expert Insights
-        {Notable quotes and analysis from industry leaders}
-        {Contrasting viewpoints}
+            ## Future Outlook
+            {Emerging trends}
+            {Expert predictions}
+            {Potential challenges and opportunities}
 
-        ## Sources & Methodology
-        {List of primary sources with key contributions}
-        {Research methodology overview}
+            ## Expert Insights
+            {Notable quotes and analysis from industry leaders}
+            {Contrasting viewpoints}
 
-        ---
-        Research conducted by AI Investigative Journalist
-        New York Times Style Report
-        Published: {current_date}
-        Last Updated: {current_time}\
-    """),
-    markdown=True,
-    show_tool_calls=True,
-    add_datetime_to_instructions=True,
-)
+            ## Sources & Methodology
+            {List of primary sources with key contributions}
+            {Research methodology overview}
+
+            ---
+            Research conducted by AI Investigative Journalist
+            New York Times Style Report
+            Published: {current_date}
+            Last Updated: {current_time}\
+        """),
+        markdown=True,
+        show_tool_calls=True,
+        add_datetime_to_instructions=True,
+    )
+
+    def run(self, query: str, stream: bool = True):
+        # Run the agent and yield the response as a RunResponse iterator
+        responses = self.agent.run(query, stream=stream)
+        if hasattr(responses, '__iter__') and not isinstance(responses, str):
+            for r in responses:
+                yield r
+        else:
+            yield RunResponse(content=responses, event=RunEvent.workflow_completed)
 
 if __name__ == "__main__":
-    research_agent.print_response(
-        "Analyze the current state and future implications of artificial intelligence regulation worldwide",
-        stream=True,
-    )
+    import random
+    from rich.prompt import Prompt
+
+    # If running as API server
+    if os.getenv("RUN_AS_API", "0") == "1":
+        from agent_api_server import create_agent_api
+        import uvicorn
+
+        def workflow_runner(query):
+            workflow = ResearchAgentWorkflow(
+                session_id=f"research-agent-on-{query.lower().replace(' ', '-').replace('/', '-')}",
+                storage=SqliteStorage(
+                    table_name="research_agent_workflows",
+                    db_file="tmp/agno_workflows.db",
+                ),
+                debug_mode=True,
+            )
+            result = workflow.agent.run(query, stream=False)
+            if isinstance(result, (list, tuple)):
+                responses = result
+            elif hasattr(result, '__iter__') and not isinstance(result, str):
+                responses = list(result)
+            else:
+                responses = [result]
+            return responses[-1].content if responses else "No content generated."
+
+        app = create_agent_api("research-agent", workflow_runner)
+        uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("API_PORT", "8000")))
+    else:
+        # Example prompts to showcase the agent
+        example_prompts = [
+            "Investigate the development and impact of large language models in 2024",
+            "Research the current state of quantum computing and its practical applications",
+            "Analyze the evolution and future of edge computing technologies",
+            "Explore the latest advances in brain-computer interface technology",
+            "Report on innovative carbon capture technologies and their effectiveness",
+            "Investigate the global progress in renewable energy adoption",
+            "Analyze the impact of circular economy practices on global sustainability",
+            "Research the development of sustainable aviation technologies",
+            "Explore the latest developments in CRISPR gene editing technology",
+            "Analyze the impact of AI on drug discovery and development",
+            "Investigate the evolution of personalized medicine approaches",
+            "Research the current state of longevity science and anti-aging research",
+            "Examine the effects of social media on democratic processes",
+            "Analyze the impact of remote work on urban development",
+            "Investigate the role of blockchain in transforming financial systems",
+            "Research the evolution of digital privacy and data protection measures",
+        ]
+        topic = Prompt.ask(
+            "[bold]Enter a research topic[/bold] (or press Enter for a random example)\n✨",
+            default=random.choice(example_prompts),
+        )
+        url_safe_topic = topic.lower().replace(" ", "-").replace("/", "-")
+        workflow = ResearchAgentWorkflow(
+            session_id=f"research-agent-on-{url_safe_topic}",
+            storage=SqliteStorage(
+                table_name="research_agent_workflows",
+                db_file="tmp/agno_workflows.db",
+            ),
+            debug_mode=True,
+        )
+        responses = workflow.run(topic, stream=True)
+        pprint_run_response(responses, markdown=True)
 
 # Example prompts to explore:
 """
