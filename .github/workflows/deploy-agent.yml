@@ -92,6 +92,13 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{ "status": "failed", "docker_image": "'$DOCKER_IMAGE'" }'
 
+      # 8. (Optional) Upload logs as an artifact for debugging
+      - name: Upload workflow logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-logs
+          path: ${{ runner.temp }}/_github_workflow/*
 # Notes:
 # - To deploy to a Droplet instead of App Platform, replace the deploy step with SSH/docker commands.
 # - Make sure all referenced secrets are set in your repository settings.
