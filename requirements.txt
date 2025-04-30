@@ -1,0 +1,29 @@
+# Core dependencies
+agno>=0.1.0
+flask>=2.0.0
+python-dotenv>=0.19.0
+openai>=1.1.0
+PyGithub
+uvicorn>=0.21.0
+pydantic>=1.10.0
+anthropic
+
+# Core dependencies
+python-telegram-bot>=20.0
+fastapi>=0.95.0
+
+# GitHub and NPM API clients
+# Add specific GitHub/NPM client libraries used in your implementation
+
+# Utils
+python-dotenv>=1.0.0  # For environment variable management
+pymongo
+agno[storage]
+duckduckgo-search
+newspaper4k 
+lxml_html_clean
+arxiv
+pypdf
+googlesearch-python
+pycountry
+yfinance

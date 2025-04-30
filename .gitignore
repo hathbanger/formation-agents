@@ -1,0 +1,92 @@
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+*.whl
+pip-wheel-metadata/
+
+# Virtual environments
+.env
+.venv/
+ENV/
+env/
+venv/
+env.bak/
+venv.bak/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Pytest and testing
+.pytest_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+nosetests.xml
+pytest_debug.log
+
+# Translations
+*.mo
+
+# Django stuff
+local_settings.py
+db.sqlite3
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# PDM
+__pypackages__/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# macOS / Windows
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# dotenv environment variables
+.env.local
+.env.*.local
+
+data
+deployment-specs
+reports
+tmp
+logs

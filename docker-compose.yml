@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+  # MongoDB service
+  mongodb:
+    image: mongo:latest
+    container_name: ossboss-mongodb
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+    networks:
+      - ossboss-network
+
+  # OSS BOSS application
+  ossboss:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ossboss-app
+    env_file:
+      - .env
+    depends_on:
+      - mongodb
+    environment:
+      - MONGO_DB_URL=mongodb://mongodb:27017/ossboss
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    networks:
+      - ossboss-network
+    # Choose which interfaces to start (CLI, API, Telegram, or all)
+    # Uncomment one of the following lines to customize:
+    # command: ["python", "main.py", "--api"]
+    # command: ["python", "main.py", "--telegram"]
+    # command: ["python", "main.py", "--cli"]
+    command: ["python", "main.py", "--all"]
+
+networks:
+  ossboss-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
