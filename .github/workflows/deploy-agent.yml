@@ -40,10 +40,14 @@ jobs:
       DEPLOYMENT_SPEC: ${{ github.event.inputs.deployment_spec_path }}
       APP_ID: ${{ secrets.DO_APP_ID }}
       DEPLOYMENT_ID: ${{ github.event.inputs.deployment_id }}
-      PLATFORM_API_KEY: ${{ secrets.PLATFORM_API_KEY }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
     steps:
       # 1. Checkout code
       - uses: actions/checkout@v3
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
 
       # 2. Log in to DigitalOcean Container Registry
       - name: Log in to DigitalOcean Container Registry
@@ -72,33 +76,16 @@ jobs:
         env:
           DIGITALOCEAN_ACCESS_TOKEN: ${{ secrets.DOCR_TOKEN }}
 
-      # 6. Notify Platform of Deployment Success
-      - name: Notify Platform of Deployment Status (Success)
-        if: success()
+      # 9. Update deployment status in Supabase
+      - name: Update deployment status in Supabase
         run: |
-          curl -X PATCH "https://your-platform.com/api/deployments/$DEPLOYMENT_ID/status" \
-            -H "Authorization: Bearer $PLATFORM_API_KEY" \
+          curl -X PATCH "https://pdvykxnxguorkqrrpugq.supabase.co/rest/v1/deployments?id=eq.${{ github.event.inputs.deployment_id }}" \
+            -H "apikey: $SUPABASE_SERVICE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
             -H "Content-Type: application/json" \
-            -d '{ "status": "deployed", "docker_image": "'$DOCKER_IMAGE'" }'
-
-      # 7. Notify Platform of Deployment Failure
-      - name: Notify Platform of Deployment Status (Failure)
-        if: failure()
-        run: |
-          # Optionally, collect logs from previous steps if needed
-          echo "Deployment failed. Notifying platform."
-          curl -X PATCH "https://your-platform.com/api/deployments/$DEPLOYMENT_ID/status" \
-            -H "Authorization: Bearer $PLATFORM_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d '{ "status": "failed", "docker_image": "'$DOCKER_IMAGE'" }'
-
-      # 8. (Optional) Upload logs as an artifact for debugging
-      - name: Upload workflow logs
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: deployment-logs
-          path: ${{ runner.temp }}/_github_workflow/*
+            -d '{ "status": "deployed", "docker_image": "${{ github.event.inputs.docker_tag }}" }'
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
 # Notes:
 # - To deploy to a Droplet instead of App Platform, replace the deploy step with SSH/docker commands.
 # - Make sure all referenced secrets are set in your repository settings.
