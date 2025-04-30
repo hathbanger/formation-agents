@@ -1,0 +1,16 @@
+name: agent-app
+services:
+  - name: agent-service
+    dockerfile_path: ./Dockerfile
+    source_dir: .
+    envs:
+      - key: AGENT_SCRIPT_NAME
+        value: main.py # Override this per agent if needed
+      - key: API_PORT
+        value: "8000"
+    http_port: 8000
+    routes:
+      - path: /
+        preserve_path: true
+    instance_count: 1
+    instance_size_slug: basic-xxs
