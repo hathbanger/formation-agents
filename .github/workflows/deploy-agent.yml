@@ -69,12 +69,11 @@ jobs:
 
       # 5. Deploy to DigitalOcean (App Platform or Droplet)
       - name: Deploy to DigitalOcean App Platform
-        id: deploy
-        run: |
-          # Use the provided docker_tag to deploy the image
-          doctl apps update "$APP_ID" --spec "$DEPLOYMENT_SPEC"
+        uses: digitalocean/app_action/deploy@v2
         env:
           DIGITALOCEAN_ACCESS_TOKEN: ${{ secrets.DOCR_TOKEN }}
+        with:
+          token: ${{ secrets.DOCR_TOKEN }}
 
       # 9. Update deployment status in Supabase
       - name: Update deployment status in Supabase
