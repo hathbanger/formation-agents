@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DOCKER_IMAGE: registry.digitalocean.com/formation-registry/${{ github.event.inputs.docker_tag }}
-      APP_ID: ${{ secrets.DO_APP_ID }}
+      APP_ID: ${{ github.event.inputs.app_id }}
       DEPLOYMENT_ID: ${{ github.event.inputs.deployment_id }}
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
     steps:
@@ -67,7 +67,7 @@ jobs:
                 tag: latest
               envs:
                 - key: AGENT_SCRIPT_NAME
-                  value: main.py
+                  value: ${{ github.event.inputs.agent_id }}.py
                 - key: API_PORT
                   value: "8000"
               http_port: 8000
