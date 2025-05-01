@@ -25,6 +25,9 @@ on:
       agent_id:
         description: "Agent ID"
         required: true
+      app_id:
+        description: "DigitalOcean App Platform App ID"
+        required: true
       docker_tag:
         description: "Docker image tag to deploy (must already exist in registry)"
         required: true
@@ -34,7 +37,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DOCKER_IMAGE: registry.digitalocean.com/formation-registry/${{ github.event.inputs.docker_tag }}
-      APP_ID: ${{ github.event.inputs.app_id }}
       DEPLOYMENT_ID: ${{ github.event.inputs.deployment_id }}
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
     steps:
