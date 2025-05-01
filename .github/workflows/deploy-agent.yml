@@ -70,9 +70,10 @@ jobs:
       # 5. Template app.yaml
       - name: Template app.yaml
         run: |
-          sed -i "s/AGENT_ID/${{ github.event.inputs.agent_id }}/g" .do/app.yaml
-          sed -i "s/AGENT_IMAGE_NAME/${{ github.event.inputs.agent_id }}/g" .do/app.yaml
-          sed -i "s/AGENT_IMAGE_TAG/${{ github.event.inputs.docker_tag }}/g" .do/app.yaml
+          SHORT_ID="${{ github.event.inputs.agent_id }}"
+          SHORT_ID="${SHORT_ID:0:5}"
+          sed -i "s/AGENT_ID/${SHORT_ID}/g" .do/app.yaml
+          sed -i "s/AGENT_IMAGE_NAME/${{ github.event.inputs.docker_tag }}/g" .do/app.yaml
 
       # 6. Deploy to DigitalOcean App Platform
       - name: Deploy to DigitalOcean App Platform

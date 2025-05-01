@@ -1,6 +1,6 @@
 name: agent-app
 services:
-  - name: agent-service-AGENT_ID
+  - name: AGENT_ID
     image:
       registry: registry.digitalocean.com
       repository: formation-registry/AGENT_IMAGE_NAME
