@@ -53,10 +53,14 @@ jobs:
 
       - name: Generate app.yaml from template
         run: |
+          # Truncate agent_id to make sure service name is under 32 chars
+          SHORT_ID="${{ github.event.inputs.agent_id }}"
+          SHORT_ID="${SHORT_ID:0:5}"
+
           cat > .do/app.yaml << EOF
           name: agent-app
           services:
-            - name: agent-service-${{ github.event.inputs.agent_id }}
+            - name: agent-svc-${SHORT_ID}
               image:
                 registry_type: DOCR
                 registry: registry.digitalocean.com
