@@ -55,18 +55,6 @@ jobs:
         env:
           DOCR_TOKEN: ${{ secrets.DOCR_TOKEN }}
 
-      # 3. Build Docker image
-      - name: Build Docker image
-        id: build
-        run: |
-          docker build -t "$DOCKER_IMAGE" .
-
-      # 4. Push Docker image
-      - name: Push Docker image
-        id: push
-        run: |
-          docker push "$DOCKER_IMAGE"
-
       # 5. Template app.yaml
       - name: Template app.yaml
         run: |
