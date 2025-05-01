@@ -63,6 +63,7 @@ jobs:
           echo "DEPLOYMENT_ID: $DEPLOYMENT_ID"
           echo "SUPABASE_SERVICE_KEY: $SUPABASE_SERVICE_KEY"
           echo "agent id: ${{ github.event.inputs.agent_id }}"
+          echo "docker tag: ${{ github.event.inputs.docker_tag }}"
 
       # 5. Template app.yaml
       - name: Template app.yaml
