@@ -63,7 +63,7 @@ jobs:
             - name: agent-svc-${SHORT_ID}
               image:
                 registry_type: DOCR
-                repository: ${{ github.event.inputs.docker_tag }}
+                repository: ${{ github.event.inputs.agent_id }}
                 tag: latest
               envs:
                 - key: AGENT_SCRIPT_NAME
