@@ -61,7 +61,7 @@ jobs:
           SHORT_ID="${SHORT_ID:0:5}"
 
           cat > .do/app.yaml << EOF
-          name: agent-app
+          name: agent-app-${SHORT_ID}
           services:
             - name: agent-svc-${SHORT_ID}
               image:
