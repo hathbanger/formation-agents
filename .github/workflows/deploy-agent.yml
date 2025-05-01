@@ -1,19 +1,20 @@
 # .github/workflows/deploy-agent.yml
 #
-# Build, push, and deploy agent Docker image to DigitalOcean, then notify the Formation platform.
+# Deploy agent Docker image to DigitalOcean App Platform
+# (Skips build step since containers are already pushed to registry)
 #
 # Required secrets:
 #   - DOCR_TOKEN: DigitalOcean Container Registry token
 #   - PLATFORM_API_KEY: API key for notifying the Formation platform
-#   - DO_APP_ID: DigitalOcean App Platform App ID (if using App Platform)
+#   - DO_APP_ID: DigitalOcean App Platform App ID
+#   - SUPABASE_SERVICE_KEY: Supabase service key for updating status
 #
 # Required inputs:
 #   - deployment_id: Deployment record ID (from Formation platform)
 #   - agent_id: Agent ID
-#   - docker_tag: Unique Docker image tag for this deployment
-#   - deployment_spec_path: (optional) Path to deployment spec YAML (default: deployment-spec.yaml)
+#   - docker_tag: Existing Docker image tag to deploy
 
-name: Build and Deploy Agent
+name: Deploy Agent to DigitalOcean
 
 on:
   workflow_dispatch:
@@ -25,19 +26,14 @@ on:
         description: "Agent ID"
         required: true
       docker_tag:
-        description: "Docker image tag to deploy"
+        description: "Docker image tag to deploy (must already exist in registry)"
         required: true
-      deployment_spec_path:
-        description: "Path to deployment spec YAML (default: deployment-spec.yaml)"
-        required: false
-        default: "deployment-spec.yaml"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
       DOCKER_IMAGE: registry.digitalocean.com/formation-registry/${{ github.event.inputs.docker_tag }}
-      DEPLOYMENT_SPEC: ${{ github.event.inputs.deployment_spec_path }}
       APP_ID: ${{ secrets.DO_APP_ID }}
       DEPLOYMENT_ID: ${{ github.event.inputs.deployment_id }}
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -52,22 +48,35 @@ jobs:
       - name: Log in to DigitalOcean Container Registry
         run: doctl registry login --expiry-seconds 1200
 
-      - name: test env vars
-        run: |
-          echo "DOCKER_IMAGE: $DOCKER_IMAGE"
-          echo "DEPLOYMENT_SPEC: $DEPLOYMENT_SPEC"
-          echo "APP_ID: $APP_ID"
-          echo "DEPLOYMENT_ID: $DEPLOYMENT_ID"
-          echo "SUPABASE_SERVICE_KEY: $SUPABASE_SERVICE_KEY"
-          echo "agent id: ${{ github.event.inputs.agent_id }}"
-          echo "docker tag: ${{ github.event.inputs.docker_tag }}"
+      - name: Create .do directory if it doesn't exist
+        run: mkdir -p .do
 
-      - name: Template app.yaml
+      - name: Generate app.yaml from template
         run: |
-          SHORT_ID="${{ github.event.inputs.agent_id }}"
-          SHORT_ID="${SHORT_ID:0:5}"
-          sed -i "s/AGENT_ID/${SHORT_ID}/g" .do/app.yaml
-          sed -i "s/AGENT_IMAGE_NAME/${{ github.event.inputs.docker_tag }}/g" .do/app.yaml
+          cat > .do/app.yaml << EOF
+          name: agent-app
+          services:
+            - name: agent-service-${{ github.event.inputs.agent_id }}
+              image:
+                registry_type: DOCR
+                registry: registry.digitalocean.com
+                repository: formation-registry/${{ github.event.inputs.docker_tag }}
+              envs:
+                - key: AGENT_SCRIPT_NAME
+                  value: main.py
+                - key: API_PORT
+                  value: "8000"
+              http_port: 8000
+              routes:
+                - path: /
+                  preserve_path: true
+              instance_count: 1
+              instance_size_slug: basic-xxs
+          EOF
+
+          # Show generated file for debugging
+          echo "Generated app.yaml:"
+          cat .do/app.yaml
 
       - name: Deploy to DigitalOcean App Platform
         uses: digitalocean/app_action/deploy@v2
@@ -80,9 +89,4 @@ jobs:
             -H "apikey: $SUPABASE_SERVICE_KEY" \
             -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
             -H "Content-Type: application/json" \
-            -d '{ "status": "deployed", "docker_image": "${{ github.event.inputs.docker_tag }}" }'
-
-# Notes:
-# - To deploy to a Droplet instead of App Platform, replace the deploy step with SSH/docker commands.
-# - Make sure all referenced secrets are set in your repository settings.
-# - You may further enhance log collection by capturing output from each step and sending it to the platform.
+            -d '{"status": "deployed", "docker_image": "${{ github.event.inputs.docker_tag }}"}'
