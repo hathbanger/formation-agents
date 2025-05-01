@@ -88,14 +88,18 @@ jobs:
           cat .do/app.yaml
 
       - name: Deploy to DigitalOcean App Platform
+        id: deploy
         uses: digitalocean/app_action/deploy@v2
         with:
           token: ${{ secrets.DOCR_TOKEN }}
 
-      - name: Update deployment status in Supabase
+      - name: Update deployment status and FQDN in Supabase
         run: |
+          # Extract the live_url from the app metadata
+          LIVE_URL=$(echo '${{ fromJson(steps.deploy.outputs.app).live_url }}')
+
           curl -X PATCH "https://pdvykxnxguorkqrrpugq.supabase.co/rest/v1/deployments?id=eq.${{ github.event.inputs.deployment_id }}" \
             -H "apikey: $SUPABASE_SERVICE_KEY" \
             -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
             -H "Content-Type: application/json" \
-            -d '{"status": "success"}'
+            -d "{\"status\": \"success\", \"deployment_url\": \"$LIVE_URL\"}"
