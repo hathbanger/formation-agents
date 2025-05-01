@@ -55,6 +55,14 @@ jobs:
         env:
           DOCR_TOKEN: ${{ secrets.DOCR_TOKEN }}
 
+      - name: test env vars
+        run: |
+          echo "DOCKER_IMAGE: $DOCKER_IMAGE"
+          echo "DEPLOYMENT_SPEC: $DEPLOYMENT_SPEC"
+          echo "APP_ID: $APP_ID"
+          echo "DEPLOYMENT_ID: $DEPLOYMENT_ID"
+          echo "SUPABASE_SERVICE_KEY: $SUPABASE_SERVICE_KEY"
+
       # 5. Template app.yaml
       - name: Template app.yaml
         run: |
