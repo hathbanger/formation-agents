@@ -95,4 +95,4 @@ jobs:
             -H "apikey: $SUPABASE_SERVICE_KEY" \
             -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
             -H "Content-Type: application/json" \
-            -d '{"status": "deployed", "docker_image": "${{ github.event.inputs.docker_tag }}"}'
+            -d '{"status": "success"}'
