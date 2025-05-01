@@ -63,7 +63,8 @@ jobs:
             - name: agent-svc-${SHORT_ID}
               image:
                 registry_type: DOCR
-                repository: ${{ github.event.inputs.docker_tag }}
+                registry: registry.digitalocean.com
+                repository: formation-registry/${{ github.event.inputs.docker_tag }}
                 tag: latest
               envs:
                 - key: AGENT_SCRIPT_NAME
