@@ -1,6 +1,7 @@
 name: agent-app
 services:
   - name: agent-service
+    registry_type: DOCR
     image:
       registry: registry.digitalocean.com
       repository: formation-registry/AGENT_IMAGE_NAME
