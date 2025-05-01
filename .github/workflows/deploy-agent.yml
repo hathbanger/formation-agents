@@ -39,6 +39,7 @@ jobs:
       DOCKER_IMAGE: registry.digitalocean.com/formation-registry/${{ github.event.inputs.docker_tag }}
       DEPLOYMENT_ID: ${{ github.event.inputs.deployment_id }}
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
       - uses: actions/checkout@v3
 
@@ -72,6 +73,8 @@ jobs:
                   value: ${{ github.event.inputs.app_id }}.py
                 - key: API_PORT
                   value: "8000"
+                - key: OPENAI_API_KEY
+                  value: ${{ secrets.OPENAI_API_KEY }}
               http_port: 8000
               routes:
                 - path: /
